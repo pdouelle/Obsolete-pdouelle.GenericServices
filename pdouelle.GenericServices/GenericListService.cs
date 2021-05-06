@@ -6,22 +6,22 @@ using System.Threading;
 using System.Threading.Tasks;
 using pdouelle.QueryStringHelper;
 
-namespace pdouelle.Edenred.CMS.API.Service
+namespace pdouelle.GenericServices
 {
     public class GenericListService<TEntity, TRequest> : IGenericListService<TEntity, TRequest>
     {
-        private readonly HttpClient _httpClient;
+        protected readonly HttpClient HttpClient;
 
         public GenericListService(HttpClient httpClient)
         {
-            _httpClient = httpClient;
+            HttpClient = httpClient;
         }
         
-        public async Task<IEnumerable<TEntity>> GetListAsync(TRequest request, CancellationToken cancellationToken = new())
+        public virtual async Task<IEnumerable<TEntity>> GetListAsync(TRequest request, CancellationToken cancellationToken = new())
         {
             var queryString = request.GetQueryString();
 
-            HttpResponseMessage response = await _httpClient.GetAsync(queryString, cancellationToken);
+            HttpResponseMessage response = await HttpClient.GetAsync(queryString, cancellationToken);
 
             if (response.IsSuccessStatusCode)
                 return JsonSerializer.Deserialize<IEnumerable<TEntity>>(
