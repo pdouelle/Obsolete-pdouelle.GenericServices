@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using pdouelle.QueryStringHelper;
 
 namespace pdouelle.GenericServices
@@ -11,27 +12,41 @@ namespace pdouelle.GenericServices
     public class GenericListService<TEntity, TRequest> : IGenericListService<TEntity, TRequest>
     {
         protected readonly HttpClient HttpClient;
+        private readonly ILogger<GenericListService<TEntity, TRequest>> _logger;
 
-        public GenericListService(HttpClient httpClient)
+        public GenericListService(HttpClient httpClient, ILogger<GenericListService<TEntity, TRequest>> logger)
         {
             HttpClient = httpClient;
+            _logger = logger;
         }
-        
-        public virtual async Task<IEnumerable<TEntity>> GetListAsync(TRequest request, CancellationToken cancellationToken = new())
+
+        public virtual async Task<IEnumerable<TEntity>> GetListAsync(TRequest request,
+            CancellationToken cancellationToken = new())
         {
-            var queryString = request.GetQueryString();
+            try
+            {
+                var queryString = request.GetQueryString();
 
-            HttpResponseMessage response = await HttpClient.GetAsync(queryString, cancellationToken);
+                HttpResponseMessage response = await HttpClient.GetAsync(queryString, cancellationToken);
 
-            if (response.IsSuccessStatusCode)
-                return JsonSerializer.Deserialize<IEnumerable<TEntity>>(
-                    await response.Content.ReadAsStringAsync(cancellationToken),
-                    new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true
-                    });
+                var content = await response.Content.ReadAsStringAsync(cancellationToken);
 
-            throw new Exception((int) response.StatusCode + "-" + response.StatusCode);
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonOptions = new JsonSerializerOptions {PropertyNameCaseInsensitive = true};
+                    var jsonResponse = JsonSerializer.Deserialize<IEnumerable<TEntity>>(content, jsonOptions);
+                    return jsonResponse;
+                }
+
+                var error = $"Http Response Error: {response} Response Body: {content}";
+                _logger.LogError(error);
+                throw new Exception(error);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, e.Message);
+                throw;
+            }
         }
     }
 }
